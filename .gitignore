@@ -19,3 +19,6 @@ Icon?
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Temporary data files
+data/~$database_checkkist.xlsx
