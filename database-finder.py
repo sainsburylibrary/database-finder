@@ -1,38 +1,38 @@
 import streamlit as st
 import pandas as pd
-import tabulate  # required for pandas.DataFrame.to_markdown()
 import streamlit.components.v1 as components
 from openpyxl import load_workbook
 
 
-# Load the Excel file
-df = pd.read_excel("data/database_checklist.xlsx", header=None)
+# Cache the workbook loading to avoid unnecessary reloads
+@st.cache_data
+def load_workbook_data():
+    wb = load_workbook("data/database_checklist.xlsx")
+    return wb.active
 
-# Extract headers and data ranges
-content_types = df.iloc[0, 1:].dropna().tolist()
-data_start_row = 2
+
+# Load the Excel file
+ws = load_workbook_data()
+
+# Extract headers and data from openpyxl
+header_row = [cell.value for cell in ws[1]]
+content_types = [val for val in header_row[1:] if val is not None]
+data_start_row = 3
 
 # Streamlit UI
 st.title("Business Database Finder")
-# st.markdown("Select content types from the drop down menu below.")
 
 # Label and dropdown on the same line to avoid extra padding
 st.subheader("Select content types:", divider=False, width="stretch")
-# st.markdown("**⬇️ Choose one or more content types from the list below:**")
 selected_types = st.multiselect(
     "Select content types", content_types, label_visibility="collapsed"
 )
 
 if selected_types:
     # Match columns for selected content types
-    matching_cols = [
-        df.columns[df.iloc[0] == col].tolist()[0] for col in selected_types
-    ]
+    matching_cols = [i for i, val in enumerate(header_row) if val in selected_types]
 
     # Extract names and hyperlinks from Excel directly
-    wb = load_workbook("data/database_checklist.xlsx")
-    ws = wb.active
-
     names = []
     urls = []
 
@@ -44,7 +44,9 @@ if selected_types:
         else:
             urls.append("")
 
-    content_data = df.iloc[data_start_row:, matching_cols].copy()
+    data_rows = list(ws.iter_rows(min_row=data_start_row, values_only=True))
+    df = pd.DataFrame(data_rows)
+    content_data = df.iloc[:, matching_cols].copy()
     content_data.columns = selected_types
     result = pd.DataFrame({"Database": names, "URL": urls})
     result = pd.concat([result, content_data.reset_index(drop=True)], axis=1)
